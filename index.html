@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VEX V5 Team Scout</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e3a5f, #2d1b69); padding: 24px; text-align: center; border-bottom: 2px solid #3b82f6; }
+  .header h1 { font-size: 28px; color: #fff; }
+  .header p { color: #94a3b8; margin-top: 6px; font-size: 14px; }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+
+  .search-box { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #334155; }
+  .search-box label { display: block; font-size: 14px; color: #94a3b8; margin-bottom: 6px; }
+  .search-row { display: flex; gap: 12px; margin-bottom: 12px; }
+  .search-row input { flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 16px; outline: none; }
+  .search-row input:focus { border-color: #3b82f6; }
+  .search-row button { padding: 12px 28px; border-radius: 8px; border: none; background: #3b82f6; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .search-row button:hover { background: #2563eb; }
+  .search-row button:disabled { background: #475569; cursor: not-allowed; }
+
+  .token-row { display: flex; gap: 12px; align-items: center; }
+  .token-row input { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 13px; }
+  .token-hint { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .token-hint a { color: #60a5fa; }
+
+  .loading { text-align: center; padding: 40px; color: #94a3b8; }
+  .loading .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid #334155; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error { background: #991b1b33; border: 1px solid #991b1b; border-radius: 8px; padding: 16px; color: #fca5a5; margin-bottom: 16px; }
+
+  .team-header { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+  .team-info h2 { font-size: 24px; color: #fff; }
+  .team-info p { color: #94a3b8; margin-top: 4px; }
+  .team-rating { text-align: center; }
+  .team-rating .stars { font-size: 36px; color: #fbbf24; letter-spacing: 2px; }
+  .team-rating .score { font-size: 14px; color: #94a3b8; margin-top: 4px; }
+
+  .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 16px; border: 1px solid #334155; }
+  .card h3 { font-size: 18px; color: #fff; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #334155; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .stat-item { background: #0f172a; border-radius: 8px; padding: 16px; text-align: center; }
+  .stat-item .value { font-size: 28px; font-weight: 700; color: #3b82f6; }
+  .stat-item .label { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }
+  th { color: #94a3b8; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  td { color: #e2e8f0; }
+  tr:hover td { background: #1a2540; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .badge-world { background: #7c3aed33; color: #a78bfa; }
+  .badge-sig { background: #db277733; color: #f472b6; }
+  .badge-national { background: #0891b233; color: #22d3ee; }
+  .badge-state { background: #059669aa; color: #6ee7b7; }
+  .badge-regional { background: #d9770633; color: #fdba74; }
+  .badge-other { background: #47556933; color: #94a3b8; }
+
+  .strength-bar { display: inline-block; width: 60px; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; vertical-align: middle; margin-left: 6px; }
+  .strength-fill { height: 100%; border-radius: 4px; }
+
+  .rank-good { color: #4ade80; }
+  .rank-ok { color: #fbbf24; }
+  .rank-bad { color: #f87171; }
+
+  .no-data { color: #64748b; font-style: italic; padding: 12px 0; }
+
+  /* Tutorial Styles */
+  .tutorial-toggle { padding: 8px 16px; border-radius: 8px; border: 1px solid #3b82f6; background: transparent; color: #60a5fa; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .tutorial-toggle:hover { background: #3b82f620; }
+  .tutorial-overlay { display: none; position: fixed; inset: 0; background: #0f172aee; z-index: 100; overflow-y: auto; }
+  .tutorial-overlay.active { display: block; }
+  .tutorial-content { max-width: 720px; margin: 0 auto; padding: 32px 20px 60px; }
+  .tutorial-close { position: fixed; top: 16px; right: 24px; background: #ef4444; color: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; z-index: 101; }
+  .tutorial-close:hover { background: #dc2626; }
+  .tut-step { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 1px solid #334155; }
+  .tut-step .step-num { display: inline-block; background: #3b82f6; color: #fff; border-radius: 50%; width: 32px; height: 32px; text-align: center; line-height: 32px; font-weight: 700; font-size: 16px; margin-right: 12px; }
+  .tut-step h3 { display: inline; font-size: 18px; color: #fff; vertical-align: middle; }
+  .tut-step p, .tut-step ul { color: #cbd5e1; margin-top: 12px; line-height: 1.8; font-size: 14px; }
+  .tut-step ul { padding-left: 20px; }
+  .tut-step li { margin-bottom: 6px; }
+  .tut-step a { color: #60a5fa; text-decoration: underline; }
+  .tut-step .tut-url { background: #0f172a; border: 1px solid #475569; border-radius: 6px; padding: 10px 14px; font-family: monospace; font-size: 13px; color: #60a5fa; margin-top: 10px; word-break: break-all; display: block; }
+  .tut-step .tut-note { background: #fbbf2418; border: 1px solid #fbbf2444; border-radius: 8px; padding: 12px 16px; margin-top: 12px; color: #fbbf24; font-size: 13px; }
+  .tut-step .tut-note strong { color: #fde68a; }
+  .email-template { background: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 20px; margin-top: 12px; font-size: 13px; color: #e2e8f0; line-height: 1.8; white-space: pre-wrap; position: relative; }
+  .copy-btn { position: absolute; top: 8px; right: 8px; background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+  .copy-btn:hover { background: #2563eb; }
+  .copy-btn.copied { background: #059669; }
+
+  @media (max-width: 600px) {
+    .search-row { flex-direction: column; }
+    .team-header { flex-direction: column; text-align: center; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    table { font-size: 12px; }
+    th, td { padding: 8px 6px; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>VEX V5 Team Scout Tool</h1>
+  <p>Enter a team number to look up season performance and rating</p>
+</div>
+
+<div class="container">
+  <div class="search-box">
+    <label>API Token (from robotevents.com)</label>
+    <div class="token-row" style="margin-bottom:12px;">
+      <input type="password" id="apiToken" placeholder="Paste your Bearer Token here..." />
+      <button class="tutorial-toggle" onclick="openTutorial()">How to get a Token?</button>
+    </div>
+    <p class="token-hint">Token is saved in your browser automatically. No need to re-enter next time.</p>
+
+    <div style="margin-top:16px;">
+      <label>Team Number (e.g. 1234A, 9999B)</label>
+      <div class="search-row">
+        <input type="text" id="teamNumber" placeholder="Enter team number..." onkeydown="if(event.key==='Enter') search()" />
+        <button id="searchBtn" onclick="search()">Search</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+const API_BASE = 'https://www.robotevents.com/api/v2';
+const V5RC_PROGRAM_ID = 1;
+let currentSeasonId = null;
+
+// Save/load token
+document.getElementById('apiToken').value = localStorage.getItem('vex_api_token') || '';
+document.getElementById('apiToken').addEventListener('change', e => {
+  localStorage.setItem('vex_api_token', e.target.value.trim());
+});
+
+function getToken() {
+  const t = document.getElementById('apiToken').value.trim();
+  localStorage.setItem('vex_api_token', t);
+  return t;
+}
+
+async function apiFetch(url, token) {
+  const headers = { 'Accept': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+async function apiFetchAll(url, token) {
+  let allData = [];
+  let page = 1;
+  while (true) {
+    const sep = url.includes('?') ? '&' : '?';
+    const data = await apiFetch(`${url}${sep}page=${page}&per_page=250`, token);
+    allData = allData.concat(data.data || []);
+    if (!data.meta || page >= data.meta.last_page) break;
+    page++;
+  }
+  return allData;
+}
+
+async function getActiveSeason(token) {
+  const data = await apiFetch(`${API_BASE}/seasons?program[]=${V5RC_PROGRAM_ID}&active=true`, token);
+  if (data.data && data.data.length > 0) {
+    const sorted = data.data.sort((a, b) => b.id - a.id);
+    return sorted[0];
+  }
+  throw new Error('Active season not found');
+}
+
+async function search() {
+  const token = getToken();
+  const teamNum = document.getElementById('teamNumber').value.trim().toUpperCase();
+  const resultsDiv = document.getElementById('results');
+  const btn = document.getElementById('searchBtn');
+
+  if (!token) { resultsDiv.innerHTML = '<div class="error">Please enter your API Token first</div>'; return; }
+  if (!teamNum) { resultsDiv.innerHTML = '<div class="error">Please enter a team number</div>'; return; }
+
+  btn.disabled = true;
+  resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:12px;">Loading...</p></div>';
+
+  try {
+    if (!currentSeasonId) {
+      const season = await getActiveSeason(token);
+      currentSeasonId = season.id;
+    }
+
+    const teamData = await apiFetch(`${API_BASE}/teams?number[]=${encodeURIComponent(teamNum)}&program[]=${V5RC_PROGRAM_ID}`, token);
+    if (!teamData.data || teamData.data.length === 0) {
+      resultsDiv.innerHTML = '<div class="error">Team not found. Please check the team number.</div>';
+      btn.disabled = false;
+      return;
+    }
+    const team = teamData.data[0];
+    const teamId = team.id;
+
+    const [events, rankings, skills, awards, worldSkillsRaw] = await Promise.all([
+      apiFetchAll(`${API_BASE}/teams/${teamId}/events?season[]=${currentSeasonId}`, token),
+      apiFetchAll(`${API_BASE}/teams/${teamId}/rankings?season[]=${currentSeasonId}`, token),
+      apiFetchAll(`${API_BASE}/teams/${teamId}/skills?season[]=${currentSeasonId}`, token),
+      apiFetchAll(`${API_BASE}/teams/${teamId}/awards?season[]=${currentSeasonId}`, token),
+      fetchWorldSkills(currentSeasonId, teamNum)
+    ]);
+
+    renderResults(team, events, rankings, skills, awards, worldSkillsRaw);
+  } catch (err) {
+    resultsDiv.innerHTML = `<div class="error">Error: ${err.message}</div>`;
+    console.error(err);
+  }
+  btn.disabled = false;
+}
+
+async function fetchWorldSkills(seasonId, teamNum) {
+  try {
+    const res = await fetch(`https://www.robotevents.com/api/seasons/${seasonId}/skills`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const entry = data.find(e => e.team && e.team.team === teamNum);
+    return { entry, total: data.length };
+  } catch { return null; }
+}
+
+function getLevelBadge(level) {
+  const map = {
+    'World': ['badge-world', 'World'],
+    'Signature': ['badge-sig', 'Signature'],
+    'National': ['badge-national', 'National'],
+    'State': ['badge-state', 'State'],
+    'Regional': ['badge-regional', 'Regional'],
+  };
+  const [cls, label] = map[level] || ['badge-other', level || 'Other'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function getEventStrength(level, teamCount) {
+  const levelScore = { 'World': 5, 'Signature': 4.5, 'National': 3.5, 'State': 3, 'Regional': 2.5 };
+  let base = levelScore[level] || 2;
+  if (teamCount >= 48) base = Math.min(5, base + 0.5);
+  else if (teamCount >= 32) base = Math.min(5, base + 0.25);
+  else if (teamCount < 16) base = Math.max(1, base - 0.5);
+  return Math.round(base * 10) / 10;
+}
+
+function calcTeamRating(rankings, skills, events, worldSkills, awards) {
+  let score = 0;
+  let factors = 0;
+
+  if (rankings.length > 0) {
+    const percentiles = rankings.map(r => {
+      const totalTeams = r.event ? (r.event.teamCount || 30) : 30;
+      return 1 - (r.rank - 1) / Math.max(totalTeams - 1, 1);
+    });
+    const avgPercentile = percentiles.reduce((a, b) => a + b, 0) / percentiles.length;
+    score += avgPercentile * 5 * 3;
+    factors += 3;
+  }
+
+  const totalWins = rankings.reduce((s, r) => s + (r.wins || 0), 0);
+  const totalLosses = rankings.reduce((s, r) => s + (r.losses || 0), 0);
+  const totalTies = rankings.reduce((s, r) => s + (r.ties || 0), 0);
+  const totalMatches = totalWins + totalLosses + totalTies;
+  if (totalMatches > 0) {
+    const winRate = (totalWins + totalTies * 0.5) / totalMatches;
+    score += winRate * 5 * 2;
+    factors += 2;
+  }
+
+  if (worldSkills && worldSkills.entry) {
+    const rank = worldSkills.entry.rank;
+    const total = worldSkills.total;
+    const percentile = 1 - (rank - 1) / Math.max(total - 1, 1);
+    score += percentile * 5 * 2;
+    factors += 2;
+  }
+
+  if (events.length > 0) {
+    const strengths = events.map(e => getEventStrength(e.level, 30));
+    const avgStrength = strengths.reduce((a, b) => a + b, 0) / strengths.length;
+    score += avgStrength * 1;
+    factors += 1;
+  }
+
+  if (awards.length > 0) {
+    const awardBonus = Math.min(awards.length * 0.5, 5);
+    score += awardBonus * 1;
+    factors += 1;
+  }
+
+  if (factors === 0) return 0;
+  return Math.round((score / factors) * 10) / 10;
+}
+
+function renderStars(rating) {
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.4;
+  let s = '';
+  for (let i = 0; i < full; i++) s += '★';
+  if (half) s += '☆';
+  const empty = 5 - full - (half ? 1 : 0);
+  for (let i = 0; i < empty; i++) s += '☆';
+  return s;
+}
+
+function renderResults(team, events, rankings, skills, awards, worldSkills) {
+  const resultsDiv = document.getElementById('results');
+
+  const rating = calcTeamRating(rankings, skills, events, worldSkills, awards);
+
+  const driverScores = skills.filter(s => s.type === 'driver').map(s => s.score);
+  const progScores = skills.filter(s => s.type === 'programming').map(s => s.score);
+  const bestDriver = driverScores.length > 0 ? Math.max(...driverScores) : null;
+  const bestProg = progScores.length > 0 ? Math.max(...progScores) : null;
+  const bestCombined = (bestDriver || 0) + (bestProg || 0);
+
+  const totalWins = rankings.reduce((s, r) => s + (r.wins || 0), 0);
+  const totalLosses = rankings.reduce((s, r) => s + (r.losses || 0), 0);
+  const totalTies = rankings.reduce((s, r) => s + (r.ties || 0), 0);
+
+  const wsRank = worldSkills?.entry?.rank || 'N/A';
+  const wsTotal = worldSkills?.total || '?';
+  const wsScore = worldSkills?.entry?.scores?.score ?? 'N/A';
+
+  let html = '';
+
+  // Team Header
+  html += `
+  <div class="team-header">
+    <div class="team-info">
+      <h2>${team.number} — ${team.team_name || 'Unknown'}</h2>
+      <p>${team.organization || ''} | ${team.location?.city || ''}, ${team.location?.region || ''}, ${team.location?.country || ''}</p>
+    </div>
+    <div class="team-rating">
+      <div class="stars">${renderStars(rating)}</div>
+      <div class="score">Overall Rating ${rating} / 5.0</div>
+    </div>
+  </div>`;
+
+  // Stats Overview
+  html += `
+  <div class="card">
+    <h3>Season Overview</h3>
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="value">${events.length}</div>
+        <div class="label">Events Attended</div>
+      </div>
+      <div class="stat-item">
+        <div class="value">${totalWins}W-${totalLosses}L-${totalTies}T</div>
+        <div class="label">Win-Loss-Tie</div>
+      </div>
+      <div class="stat-item">
+        <div class="value">${wsRank}</div>
+        <div class="label">Skills World Rank / ${wsTotal}</div>
+      </div>
+      <div class="stat-item">
+        <div class="value">${wsScore}</div>
+        <div class="label">Skills High Score</div>
+      </div>
+      <div class="stat-item">
+        <div class="value">${bestDriver ?? 'N/A'}</div>
+        <div class="label">Driver High Score</div>
+      </div>
+      <div class="stat-item">
+        <div class="value">${bestProg ?? 'N/A'}</div>
+        <div class="label">Programming High Score</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Event Rankings
+  html += `
+  <div class="card">
+    <h3>Event Results</h3>`;
+  if (rankings.length > 0) {
+    const eventMap = new Map();
+    rankings.forEach(r => {
+      const eid = r.event?.id || 0;
+      if (!eventMap.has(eid)) {
+        eventMap.set(eid, { event: r.event, rankings: [] });
+      }
+      eventMap.get(eid).rankings.push(r);
+    });
+
+    const eventDetails = new Map();
+    events.forEach(e => eventDetails.set(e.id, e));
+
+    html += `<table>
+      <thead><tr><th>Event Name</th><th>Level</th><th>Rank</th><th>Record</th><th>WP/AP/SP</th><th>Strength</th></tr></thead>
+      <tbody>`;
+
+    for (const [eid, data] of eventMap) {
+      const evt = eventDetails.get(eid) || data.event || {};
+      const level = evt.level || 'Other';
+      for (const r of data.rankings) {
+        const strength = getEventStrength(level, 30);
+        const strengthPct = (strength / 5) * 100;
+        const strengthColor = strength >= 4 ? '#f472b6' : strength >= 3 ? '#fbbf24' : '#60a5fa';
+        const rankClass = r.rank <= 3 ? 'rank-good' : r.rank <= 10 ? 'rank-ok' : 'rank-bad';
+        html += `<tr>
+          <td>${evt.name || data.event?.name || 'Unknown'}</td>
+          <td>${getLevelBadge(level)}</td>
+          <td class="${rankClass}"><strong>#${r.rank}</strong></td>
+          <td>${r.wins || 0}W-${r.losses || 0}L-${r.ties || 0}T</td>
+          <td>${r.wp ?? '-'} / ${r.ap ?? '-'} / ${r.sp ?? '-'}</td>
+          <td>${strength}
+            <div class="strength-bar"><div class="strength-fill" style="width:${strengthPct}%;background:${strengthColor}"></div></div>
+          </td>
+        </tr>`;
+      }
+    }
+    html += '</tbody></table>';
+  } else {
+    html += '<p class="no-data">No event ranking data this season</p>';
+  }
+  html += '</div>';
+
+  // Skills Runs
+  html += `
+  <div class="card">
+    <h3>Skills Runs</h3>`;
+  if (skills.length > 0) {
+    html += `<table>
+      <thead><tr><th>Event</th><th>Type</th><th>Score</th><th>Rank</th><th>Attempts</th></tr></thead>
+      <tbody>`;
+    const sorted = [...skills].sort((a, b) => b.score - a.score);
+    for (const s of sorted) {
+      const typeLabel = s.type === 'driver' ? 'Driver' : 'Programming';
+      html += `<tr>
+        <td>${s.event?.name || 'Unknown'}</td>
+        <td>${typeLabel}</td>
+        <td><strong>${s.score}</strong></td>
+        <td>#${s.rank ?? '-'}</td>
+        <td>${s.attempts ?? '-'}</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+  } else {
+    html += '<p class="no-data">No skills runs recorded this season</p>';
+  }
+  html += '</div>';
+
+  // Awards
+  if (awards.length > 0) {
+    html += `
+    <div class="card">
+      <h3>Awards</h3>
+      <table>
+        <thead><tr><th>Event</th><th>Award</th></tr></thead>
+        <tbody>`;
+    for (const a of awards) {
+      html += `<tr>
+        <td>${a.event?.name || 'Unknown'}</td>
+        <td>${a.title || a.name || 'Unknown Award'}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+  }
+
+  // Rating Breakdown
+  html += `
+  <div class="card">
+    <h3>Rating Breakdown</h3>
+    <p style="color:#94a3b8; line-height:1.8; font-size:14px;">
+      Overall rating is calculated based on the following factors (max 5.0):<br>
+      • <strong>Event Rank Percentile</strong> (weight 30%): Average ranking position across all events<br>
+      • <strong>Win Rate</strong> (weight 20%): Overall win/loss ratio<br>
+      • <strong>Skills World Ranking</strong> (weight 20%): Percentile among all teams globally<br>
+      • <strong>Event Strength</strong> (weight 10%): Level of events attended (World > Signature > State ...)<br>
+      • <strong>Awards</strong> (weight 10%): Number of awards received this season<br>
+      <br>
+      <strong>Event Strength Scores:</strong> World=5 / Signature=4.5 / National=3.5 / State=3 / Regional=2.5 (bonus for large team counts)
+    </p>
+  </div>`;
+
+  resultsDiv.innerHTML = html;
+}
+
+// ===== Tutorial =====
+function openTutorial() {
+  document.getElementById('tutorialOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeTutorial() {
+  document.getElementById('tutorialOverlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+function copyEmail() {
+  const text = document.getElementById('emailText').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyEmailBtn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
+
+<!-- Tutorial Overlay -->
+<div id="tutorialOverlay" class="tutorial-overlay">
+  <button class="tutorial-close" onclick="closeTutorial()">✕</button>
+  <div class="tutorial-content">
+
+    <h2 style="color:#fff; font-size:26px; margin-bottom:8px;">How to Get a RobotEvents API Token</h2>
+    <p style="color:#94a3b8; margin-bottom:28px; font-size:14px;">You only need to do this once. The token can be reused indefinitely. The whole process takes about 5-10 minutes.</p>
+
+    <!-- Step 1 -->
+    <div class="tut-step">
+      <span class="step-num">1</span>
+      <h3>Sign Up / Log In to RobotEvents</h3>
+      <p>If you don't have an account yet, register on the RobotEvents website. If you already have an account from registering for competitions, just log in.</p>
+      <span class="tut-url">https://www.robotevents.com/register</span>
+      <div class="tut-note">
+        <strong>Tip:</strong> You can use the same account you use for VEX competition registration. No need to create a separate one.
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="tut-step">
+      <span class="step-num">2</span>
+      <h3>Go to the API Page &amp; Request Access</h3>
+      <p>After logging in, visit the API documentation page:</p>
+      <span class="tut-url">https://www.robotevents.com/api/v2</span>
+      <p>Find the <strong>"Request Access"</strong> link or form on the page and fill in your details:</p>
+      <ul>
+        <li><strong>Name:</strong> Your name</li>
+        <li><strong>Purpose:</strong> Explain why you need API access (see Step 3 for a template you can copy)</li>
+      </ul>
+      <p>After submitting, some users get <strong>instant approval</strong>, while others may need to wait 1-3 days. You'll receive an email notification once approved.</p>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="tut-step">
+      <span class="step-num">3</span>
+      <h3>Purpose Statement Template (Copy &amp; Paste)</h3>
+      <p>Paste the following into the purpose / description field of the request form:</p>
+      <div class="email-template">
+        <button class="copy-btn" id="copyEmailBtn" onclick="copyEmail()">Copy</button>
+        <div id="emailText">I am requesting access to the RobotEvents API for the purpose of building a team scouting tool for the upcoming VEX V5 Robotics Competition (V5RC) World Championship.
+
+As a competing team, I would like to query team performance data including:
+- Skills rankings and scores (driver & programming)
+- Event results and qualification rankings
+- Win/loss records and award history
+
+This tool will be a local web application used solely for pre-match scouting and strategic preparation by our team members. I will fully respect the API rate limits and terms of service.
+
+Thank you for considering my request.</div>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="tut-step">
+      <span class="step-num">4</span>
+      <h3>Once Approved, Generate Your Token</h3>
+      <p>After approval, go back to the RobotEvents website and navigate to your account settings:</p>
+      <span class="tut-url">https://www.robotevents.com/api/v2/tokens</span>
+      <p>Or click your username in the top-right corner → <strong>Account Settings</strong> → scroll down to the <strong>API Tokens</strong> section.</p>
+      <p>Click the <strong>"Create New Token"</strong> button. A popup will appear where you can name and generate your token.</p>
+      <ul>
+        <li><strong>Token Name:</strong> Anything you like, e.g. <code style="background:#0f172a;padding:2px 6px;border-radius:4px;">vex-scout</code></li>
+        <li>Click <strong>Create</strong>, and a long string of text will appear — that's your token</li>
+      </ul>
+      <div class="tut-note">
+        <strong>Important:</strong> The token is only shown ONCE! Copy it immediately and paste it into the Token field in this tool. If you forget to copy it, you can delete it and create a new one.
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="tut-step">
+      <span class="step-num">5</span>
+      <h3>Paste the Token &amp; Start Scouting!</h3>
+      <p>Paste the token into the <strong>"API Token"</strong> field at the top of this page, enter a team number, and hit Search.</p>
+      <p>The token is automatically saved in your browser's localStorage, so you won't need to re-enter it next time.</p>
+      <div class="tut-note">
+        <strong>Tip:</strong> If the "Create New Token" button doesn't respond when clicked, this is a known bug on the RobotEvents website.<br>
+        Try the following:<br>
+        • Switch to a different browser (Chrome / Safari / Firefox / Edge)<br>
+        • Use incognito / private browsing mode<br>
+        • Clear your browser cache and try again<br>
+        • Search or post for help on <a href="https://www.vexforum.com" target="_blank">VEX Forum</a>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:24px;">
+      <button class="tutorial-toggle" onclick="closeTutorial()" style="padding:12px 32px; font-size:16px;">
+        Got it, back to search
+      </button>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
