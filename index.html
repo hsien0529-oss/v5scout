@@ -72,10 +72,29 @@
 
   .no-data { color: #64748b; font-style: italic; padding: 12px 0; }
 
+  /* History cards */
+  .history-section { margin-bottom: 24px; }
+  .history-section h3 { font-size: 16px; color: #94a3b8; margin-bottom: 12px; }
+  .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .history-card { background: #1e293b; border-radius: 10px; padding: 16px; border: 1px solid #334155; cursor: pointer; transition: border-color 0.2s, transform 0.2s; }
+  .history-card:hover { border-color: #3b82f6; transform: translateY(-2px); }
+  .history-card .hc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .history-card .hc-team { font-size: 18px; font-weight: 700; color: #fff; }
+  .history-card .hc-stars { color: #fbbf24; font-size: 16px; letter-spacing: 1px; }
+  .history-card .hc-name { font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+  .history-card .hc-stats { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: #64748b; }
+  .history-card .hc-stats span { background: #0f172a; padding: 2px 8px; border-radius: 4px; }
+  .history-card .hc-remove { float: right; background: none; border: none; color: #64748b; cursor: pointer; font-size: 16px; padding: 0 4px; line-height: 1; }
+  .history-card .hc-remove:hover { color: #f87171; }
+
+  .back-btn { background: none; border: 1px solid #475569; color: #94a3b8; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; margin-bottom: 16px; }
+  .back-btn:hover { border-color: #3b82f6; color: #fff; }
+
   @media (max-width: 600px) {
     .search-row { flex-direction: column; }
     .team-header { flex-direction: column; text-align: center; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .history-grid { grid-template-columns: 1fr; }
     table { font-size: 12px; }
     th, td { padding: 8px 6px; }
   }
@@ -99,6 +118,7 @@
     </div>
   </div>
 
+  <div id="history"></div>
   <div id="results"></div>
 </div>
 
@@ -107,6 +127,7 @@ const API_BASE = 'https://www.robotevents.com/api/v2';
 const V5RC_PROGRAM_ID = 1;
 const EMBEDDED_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIzIiwianRpIjoiMTJkNDgyNWY4YjM1ZmM0ZDFkZTk4OWVmZGVhYWY1ZmQ1ZWNiZDViMGYwNzI1MmI0NzVlODdlODg4ZDBlODk3MmI3NjgwNWYxMmJhMWI4MTAiLCJpYXQiOjE3NzMxNTE1ODUuODMyNjAwMSwibmJmIjoxNzczMTUxNTg1LjgzMjYwMiwiZXhwIjoyNzE5OTI2Mzg1LjgyMzM1MDksInN1YiI6Ijk5NTEzIiwic2NvcGVzIjpbXX0.J25lIQa-X9zCVuMVWxDvvEHHOn030BKb7bPytEzNIxtD4HYKLMUbN0H6DGzwxtCE-7DPB5Ve1EhXmVLFNSUDkNpEPF5i9wI0aynwD_iJ9npjh_hHIdZRcZU7FWQa5MmUi2EXpx4UV_bkX5KtVFF4cd75M1koRgE78uFB1_zg8Q4QeorQ0lbOmSY8nwOwhO85xhDCuXx9offbysmXUc4FeNismH2U9RfZQqQZ5LbqtGktWDWLJOlCvCURnA0YQQbv5rUSiabV42bQRv7QnS94O0WpmLZ-xnXgma-UsfXvrrnjYNx8Ypzo4ikIacKdOa-4ctdFQW2Jbof8HdLutlB4PxvcUH1lIl8enf4YatMnDDvSD-K6gR49JIzziqfLmPRobnanyxEKyYlV_BxxZRUQCPiQE3uhGBN7gJuXn9I82loGzufs2j6DYfNpup-dbYeXEJKRJdtOTWya3hyvCKT-IMTWf6_DzwmHYf_6ZMmUQpJhytM-cfDhnyOfqGmleYR7u2ih0YG4LY0ht-CScEqwdyg43EvuBSHiMKdjWPCsXEwpfPQ1xFVilXbWt_gCuLHtALy6S53nS0Zt6by35Tpr6JPORywOazfsa08kL4nVYvM39YunjqVLh1vVFHuaaQoL6d7tcEMmBAHWMspRzNL9daRzY5MLY-iYj718LwxT-00';
 let currentSeasonId = null;
+let searchHistory = JSON.parse(localStorage.getItem('v5scout_history') || '[]');
 
 function getToken() {
   return EMBEDDED_TOKEN;
@@ -142,6 +163,53 @@ async function getActiveSeason(token) {
   throw new Error('Active season not found');
 }
 
+// --- History ---
+function saveHistory(entry) {
+  searchHistory = searchHistory.filter(h => h.number !== entry.number);
+  searchHistory.unshift(entry);
+  if (searchHistory.length > 20) searchHistory = searchHistory.slice(0, 20);
+  localStorage.setItem('v5scout_history', JSON.stringify(searchHistory));
+  renderHistory();
+}
+
+function removeHistory(number) {
+  searchHistory = searchHistory.filter(h => h.number !== number);
+  localStorage.setItem('v5scout_history', JSON.stringify(searchHistory));
+  renderHistory();
+}
+
+function renderHistory() {
+  const div = document.getElementById('history');
+  if (searchHistory.length === 0) { div.innerHTML = ''; return; }
+
+  let html = '<div class="history-section"><h3>Recently Searched Teams</h3><div class="history-grid">';
+  for (const h of searchHistory) {
+    html += `
+    <div class="history-card" onclick="quickSearch('${h.number}')">
+      <button class="hc-remove" onclick="event.stopPropagation(); removeHistory('${h.number}')" title="Remove">&times;</button>
+      <div class="hc-top">
+        <span class="hc-team">${h.number}</span>
+        <span class="hc-stars">${renderStars(h.rating)}</span>
+      </div>
+      <div class="hc-name">${h.name || 'Unknown'} — ${h.org || ''}</div>
+      <div class="hc-stats">
+        <span>Rating ${h.rating}/5.0</span>
+        <span>${h.record || '-'}</span>
+        <span>WS Rank ${h.wsRank || 'N/A'}</span>
+        <span>${h.events || 0} events</span>
+      </div>
+    </div>`;
+  }
+  html += '</div></div>';
+  div.innerHTML = html;
+}
+
+function quickSearch(number) {
+  document.getElementById('teamNumber').value = number;
+  search();
+}
+
+// --- Search ---
 async function search() {
   const token = getToken();
   const teamNum = document.getElementById('teamNumber').value.trim().toUpperCase();
@@ -187,11 +255,13 @@ async function search() {
 async function fetchWorldSkills(seasonId, teamNum) {
   try {
     const res = await fetch(`https://www.robotevents.com/api/seasons/${seasonId}/skills`);
-    if (!res.ok) return null;
+    if (!res.ok) { console.warn('World skills API returned', res.status); return null; }
     const data = await res.json();
+    if (!Array.isArray(data)) { console.warn('World skills API returned non-array'); return null; }
     const entry = data.find(e => e.team && e.team.team === teamNum);
+    if (!entry) { console.warn('Team', teamNum, 'not found in world skills (total:', data.length, ')'); return null; }
     return { entry, total: data.length };
-  } catch { return null; }
+  } catch (e) { console.warn('World skills fetch failed:', e); return null; }
 }
 
 function getLevelBadge(level) {
@@ -239,7 +309,7 @@ function calcTeamRating(rankings, skills, events, worldSkills, awards) {
     factors += 2;
   }
 
-  if (worldSkills && worldSkills.entry) {
+  if (worldSkills && worldSkills.entry && worldSkills.entry.rank) {
     const rank = worldSkills.entry.rank;
     const total = worldSkills.total;
     const percentile = 1 - (rank - 1) / Math.max(total - 1, 1);
@@ -275,6 +345,10 @@ function renderStars(rating) {
   return s;
 }
 
+function getEventDate(evt) {
+  return evt?.start ? new Date(evt.start) : new Date(0);
+}
+
 function renderResults(team, events, rankings, skills, awards, worldSkills) {
   const resultsDiv = document.getElementById('results');
 
@@ -284,7 +358,6 @@ function renderResults(team, events, rankings, skills, awards, worldSkills) {
   const progScores = skills.filter(s => s.type === 'programming').map(s => s.score);
   const bestDriver = driverScores.length > 0 ? Math.max(...driverScores) : null;
   const bestProg = progScores.length > 0 ? Math.max(...progScores) : null;
-  const bestCombined = (bestDriver || 0) + (bestProg || 0);
 
   const totalWins = rankings.reduce((s, r) => s + (r.wins || 0), 0);
   const totalLosses = rankings.reduce((s, r) => s + (r.losses || 0), 0);
@@ -292,9 +365,26 @@ function renderResults(team, events, rankings, skills, awards, worldSkills) {
 
   const wsRank = worldSkills?.entry?.rank || 'N/A';
   const wsTotal = worldSkills?.total || '?';
-  const wsScore = worldSkills?.entry?.scores?.score ?? 'N/A';
+
+  // Save to history
+  saveHistory({
+    number: team.number,
+    name: team.team_name || 'Unknown',
+    org: team.organization || '',
+    rating,
+    record: `${totalWins}W-${totalLosses}L-${totalTies}T`,
+    wsRank: wsRank,
+    events: events.length
+  });
+
+  // Build event date lookup
+  const eventDateMap = new Map();
+  events.forEach(e => eventDateMap.set(e.id, e));
 
   let html = '';
+
+  // Back button
+  html += `<button class="back-btn" onclick="showHome()">← Back to Search</button>`;
 
   // Team Header
   html += `
@@ -327,10 +417,6 @@ function renderResults(team, events, rankings, skills, awards, worldSkills) {
         <div class="label">Skills World Rank / ${wsTotal}</div>
       </div>
       <div class="stat-item">
-        <div class="value">${wsScore}</div>
-        <div class="label">Skills High Score</div>
-      </div>
-      <div class="stat-item">
         <div class="value">${bestDriver ?? 'N/A'}</div>
         <div class="label">Driver High Score</div>
       </div>
@@ -341,7 +427,7 @@ function renderResults(team, events, rankings, skills, awards, worldSkills) {
     </div>
   </div>`;
 
-  // Event Rankings
+  // Event Rankings - sorted by event date descending
   html += `
   <div class="card">
     <h3>Event Results</h3>`;
@@ -355,16 +441,21 @@ function renderResults(team, events, rankings, skills, awards, worldSkills) {
       eventMap.get(eid).rankings.push(r);
     });
 
-    const eventDetails = new Map();
-    events.forEach(e => eventDetails.set(e.id, e));
+    // Sort events by date descending
+    const sortedEvents = [...eventMap.entries()].sort((a, b) => {
+      const evtA = eventDateMap.get(a[0]) || a[1].event || {};
+      const evtB = eventDateMap.get(b[0]) || b[1].event || {};
+      return getEventDate(evtB) - getEventDate(evtA);
+    });
 
     html += `<table>
-      <thead><tr><th>Event Name</th><th>Level</th><th>Rank</th><th>Record</th><th>WP/AP/SP</th><th>Strength</th></tr></thead>
+      <thead><tr><th>Event Name</th><th>Date</th><th>Level</th><th>Rank</th><th>Record</th><th>WP/AP/SP</th><th>Strength</th></tr></thead>
       <tbody>`;
 
-    for (const [eid, data] of eventMap) {
-      const evt = eventDetails.get(eid) || data.event || {};
+    for (const [eid, data] of sortedEvents) {
+      const evt = eventDateMap.get(eid) || data.event || {};
       const level = evt.level || 'Other';
+      const dateStr = evt.start ? new Date(evt.start).toLocaleDateString() : '-';
       for (const r of data.rankings) {
         const strength = getEventStrength(level, 30);
         const strengthPct = (strength / 5) * 100;
@@ -372,6 +463,7 @@ function renderResults(team, events, rankings, skills, awards, worldSkills) {
         const rankClass = r.rank <= 3 ? 'rank-good' : r.rank <= 10 ? 'rank-ok' : 'rank-bad';
         html += `<tr>
           <td>${evt.name || data.event?.name || 'Unknown'}</td>
+          <td>${dateStr}</td>
           <td>${getLevelBadge(level)}</td>
           <td class="${rankClass}"><strong>#${r.rank}</strong></td>
           <td>${r.wins || 0}W-${r.losses || 0}L-${r.ties || 0}T</td>
@@ -388,19 +480,30 @@ function renderResults(team, events, rankings, skills, awards, worldSkills) {
   }
   html += '</div>';
 
-  // Skills Runs
+  // Skills Runs - sorted by event date descending, then by type
   html += `
   <div class="card">
     <h3>Skills Runs</h3>`;
   if (skills.length > 0) {
+    const sortedSkills = [...skills].sort((a, b) => {
+      const dateA = getEventDate(eventDateMap.get(a.event?.id) || a.event);
+      const dateB = getEventDate(eventDateMap.get(b.event?.id) || b.event);
+      if (dateB - dateA !== 0) return dateB - dateA;
+      // Same event: driver first, then programming
+      if (a.type !== b.type) return a.type === 'driver' ? -1 : 1;
+      return b.score - a.score;
+    });
+
     html += `<table>
-      <thead><tr><th>Event</th><th>Type</th><th>Score</th><th>Rank</th><th>Attempts</th></tr></thead>
+      <thead><tr><th>Event</th><th>Date</th><th>Type</th><th>Score</th><th>Rank</th><th>Attempts</th></tr></thead>
       <tbody>`;
-    const sorted = [...skills].sort((a, b) => b.score - a.score);
-    for (const s of sorted) {
+    for (const s of sortedSkills) {
+      const evt = eventDateMap.get(s.event?.id) || s.event || {};
+      const dateStr = evt.start ? new Date(evt.start).toLocaleDateString() : '-';
       const typeLabel = s.type === 'driver' ? 'Driver' : 'Programming';
       html += `<tr>
-        <td>${s.event?.name || 'Unknown'}</td>
+        <td>${evt.name || s.event?.name || 'Unknown'}</td>
+        <td>${dateStr}</td>
         <td>${typeLabel}</td>
         <td><strong>${s.score}</strong></td>
         <td>#${s.rank ?? '-'}</td>
@@ -413,17 +516,25 @@ function renderResults(team, events, rankings, skills, awards, worldSkills) {
   }
   html += '</div>';
 
-  // Awards
+  // Awards - sorted by event date descending
   if (awards.length > 0) {
+    const sortedAwards = [...awards].sort((a, b) => {
+      const da = getEventDate(eventDateMap.get(a.event?.id) || a.event);
+      const db = getEventDate(eventDateMap.get(b.event?.id) || b.event);
+      return db - da;
+    });
     html += `
     <div class="card">
       <h3>Awards</h3>
       <table>
-        <thead><tr><th>Event</th><th>Award</th></tr></thead>
+        <thead><tr><th>Event</th><th>Date</th><th>Award</th></tr></thead>
         <tbody>`;
-    for (const a of awards) {
+    for (const a of sortedAwards) {
+      const evt = eventDateMap.get(a.event?.id) || a.event || {};
+      const dateStr = evt.start ? new Date(evt.start).toLocaleDateString() : '-';
       html += `<tr>
-        <td>${a.event?.name || 'Unknown'}</td>
+        <td>${evt.name || a.event?.name || 'Unknown'}</td>
+        <td>${dateStr}</td>
         <td>${a.title || a.name || 'Unknown Award'}</td>
       </tr>`;
     }
@@ -448,6 +559,15 @@ function renderResults(team, events, rankings, skills, awards, worldSkills) {
 
   resultsDiv.innerHTML = html;
 }
+
+function showHome() {
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('teamNumber').value = '';
+  document.getElementById('teamNumber').focus();
+}
+
+// Init: render history on load
+renderHistory();
 
 </script>
 
