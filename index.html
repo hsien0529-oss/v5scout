@@ -112,14 +112,8 @@
 
 <div class="container">
   <div class="search-box">
-    <label>API Token (from robotevents.com)</label>
-    <div class="token-row" style="margin-bottom:12px;">
-      <input type="password" id="apiToken" placeholder="Paste your Bearer Token here..." />
-      <button class="tutorial-toggle" onclick="openTutorial()">How to get a Token?</button>
-    </div>
-    <p class="token-hint">Token is saved in your browser automatically. No need to re-enter next time.</p>
-
-    <div style="margin-top:16px;">
+    <input type="hidden" id="apiToken" />
+    <div>
       <label>Team Number (e.g. 1234A, 9999B)</label>
       <div class="search-row">
         <input type="text" id="teamNumber" placeholder="Enter team number..." onkeydown="if(event.key==='Enter') search()" />
@@ -134,18 +128,11 @@
 <script>
 const API_BASE = 'https://www.robotevents.com/api/v2';
 const V5RC_PROGRAM_ID = 1;
+const EMBEDDED_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIzIiwianRpIjoiMTJkNDgyNWY4YjM1ZmM0ZDFkZTk4OWVmZGVhYWY1ZmQ1ZWNiZDViMGYwNzI1MmI0NzVlODdlODg4ZDBlODk3MmI3NjgwNWYxMmJhMWI4MTAiLCJpYXQiOjE3NzMxNTE1ODUuODMyNjAwMSwibmJmIjoxNzczMTUxNTg1LjgzMjYwMiwiZXhwIjoyNzE5OTI2Mzg1LjgyMzM1MDksInN1YiI6Ijk5NTEzIiwic2NvcGVzIjpbXX0.J25lIQa-X9zCVuMVWxDvvEHHOn030BKb7bPytEzNIxtD4HYKLMUbN0H6DGzwxtCE-7DPB5Ve1EhXmVLFNSUDkNpEPF5i9wI0aynwD_iJ9npjh_hHIdZRcZU7FWQa5MmUi2EXpx4UV_bkX5KtVFF4cd75M1koRgE78uFB1_zg8Q4QeorQ0lbOmSY8nwOwhO85xhDCuXx9offbysmXUc4FeNismH2U9RfZQqQZ5LbqtGktWDWLJOlCvCURnA0YQQbv5rUSiabV42bQRv7QnS94O0WpmLZ-xnXgma-UsfXvrrnjYNx8Ypzo4ikIacKdOa-4ctdFQW2Jbof8HdLutlB4PxvcUH1lIl8enf4YatMnDDvSD-K6gR49JIzziqfLmPRobnanyxEKyYlV_BxxZRUQCPiQE3uhGBN7gJuXn9I82loGzufs2j6DYfNpup-dbYeXEJKRJdtOTWya3hyvCKT-IMTWf6_DzwmHYf_6ZMmUQpJhytM-cfDhnyOfqGmleYR7u2ih0YG4LY0ht-CScEqwdyg43EvuBSHiMKdjWPCsXEwpfPQ1xFVilXbWt_gCuLHtALy6S53nS0Zt6by35Tpr6JPORywOazfsa08kL4nVYvM39YunjqVLh1vVFHuaaQoL6d7tcEMmBAHWMspRzNL9daRzY5MLY-iYj718LwxT-00';
 let currentSeasonId = null;
 
-// Save/load token
-document.getElementById('apiToken').value = localStorage.getItem('vex_api_token') || '';
-document.getElementById('apiToken').addEventListener('change', e => {
-  localStorage.setItem('vex_api_token', e.target.value.trim());
-});
-
 function getToken() {
-  const t = document.getElementById('apiToken').value.trim();
-  localStorage.setItem('vex_api_token', t);
-  return t;
+  return EMBEDDED_TOKEN;
 }
 
 async function apiFetch(url, token) {
@@ -184,7 +171,6 @@ async function search() {
   const resultsDiv = document.getElementById('results');
   const btn = document.getElementById('searchBtn');
 
-  if (!token) { resultsDiv.innerHTML = '<div class="error">Please enter your API Token first</div>'; return; }
   if (!teamNum) { resultsDiv.innerHTML = '<div class="error">Please enter a team number</div>'; return; }
 
   btn.disabled = true;
