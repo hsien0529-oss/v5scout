@@ -128,6 +128,8 @@ const V5RC_PROGRAM_ID = 1;
 const EMBEDDED_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIzIiwianRpIjoiMTJkNDgyNWY4YjM1ZmM0ZDFkZTk4OWVmZGVhYWY1ZmQ1ZWNiZDViMGYwNzI1MmI0NzVlODdlODg4ZDBlODk3MmI3NjgwNWYxMmJhMWI4MTAiLCJpYXQiOjE3NzMxNTE1ODUuODMyNjAwMSwibmJmIjoxNzczMTUxNTg1LjgzMjYwMiwiZXhwIjoyNzE5OTI2Mzg1LjgyMzM1MDksInN1YiI6Ijk5NTEzIiwic2NvcGVzIjpbXX0.J25lIQa-X9zCVuMVWxDvvEHHOn030BKb7bPytEzNIxtD4HYKLMUbN0H6DGzwxtCE-7DPB5Ve1EhXmVLFNSUDkNpEPF5i9wI0aynwD_iJ9npjh_hHIdZRcZU7FWQa5MmUi2EXpx4UV_bkX5KtVFF4cd75M1koRgE78uFB1_zg8Q4QeorQ0lbOmSY8nwOwhO85xhDCuXx9offbysmXUc4FeNismH2U9RfZQqQZ5LbqtGktWDWLJOlCvCURnA0YQQbv5rUSiabV42bQRv7QnS94O0WpmLZ-xnXgma-UsfXvrrnjYNx8Ypzo4ikIacKdOa-4ctdFQW2Jbof8HdLutlB4PxvcUH1lIl8enf4YatMnDDvSD-K6gR49JIzziqfLmPRobnanyxEKyYlV_BxxZRUQCPiQE3uhGBN7gJuXn9I82loGzufs2j6DYfNpup-dbYeXEJKRJdtOTWya3hyvCKT-IMTWf6_DzwmHYf_6ZMmUQpJhytM-cfDhnyOfqGmleYR7u2ih0YG4LY0ht-CScEqwdyg43EvuBSHiMKdjWPCsXEwpfPQ1xFVilXbWt_gCuLHtALy6S53nS0Zt6by35Tpr6JPORywOazfsa08kL4nVYvM39YunjqVLh1vVFHuaaQoL6d7tcEMmBAHWMspRzNL9daRzY5MLY-iYj718LwxT-00';
 let currentSeasonId = null;
 let searchHistory = JSON.parse(localStorage.getItem('v5scout_history') || '[]');
+let worldSkillsCache = {}; // keyed by "seasonId_grade", value: { data, fetchedAt }
+let worldSkillsFetching = {}; // keyed by "seasonId_grade", promise if currently fetching
 
 function getToken() {
   return EMBEDDED_TOKEN;
@@ -235,13 +237,14 @@ async function search() {
     }
     const team = teamData.data[0];
     const teamId = team.id;
+    const teamGrade = team.grade || 'High School';
 
     const [events, rankings, skills, awards, worldSkillsRaw] = await Promise.all([
       apiFetchAll(`${API_BASE}/teams/${teamId}/events?season[]=${currentSeasonId}`, token),
       apiFetchAll(`${API_BASE}/teams/${teamId}/rankings?season[]=${currentSeasonId}`, token),
       apiFetchAll(`${API_BASE}/teams/${teamId}/skills?season[]=${currentSeasonId}`, token),
       apiFetchAll(`${API_BASE}/teams/${teamId}/awards?season[]=${currentSeasonId}`, token),
-      fetchWorldSkills(currentSeasonId, teamNum)
+      fetchWorldSkills(currentSeasonId, teamNum, teamGrade)
     ]);
 
     renderResults(team, events, rankings, skills, awards, worldSkillsRaw);
@@ -252,16 +255,41 @@ async function search() {
   btn.disabled = false;
 }
 
-async function fetchWorldSkills(seasonId, teamNum) {
-  try {
-    const res = await fetch(`https://www.robotevents.com/api/seasons/${seasonId}/skills`);
-    if (!res.ok) { console.warn('World skills API returned', res.status); return null; }
-    const data = await res.json();
-    if (!Array.isArray(data)) { console.warn('World skills API returned non-array'); return null; }
-    const entry = data.find(e => e.team && e.team.team === teamNum);
-    if (!entry) { console.warn('Team', teamNum, 'not found in world skills (total:', data.length, ')'); return null; }
-    return { entry, total: data.length };
-  } catch (e) { console.warn('World skills fetch failed:', e); return null; }
+async function loadWorldSkillsData(seasonId, grade) {
+  const key = `${seasonId}_${grade}`;
+  const cached = worldSkillsCache[key];
+  if (cached && (Date.now() - cached.fetchedAt) < 10 * 60 * 1000) {
+    return cached.data;
+  }
+  if (worldSkillsFetching[key]) return worldSkillsFetching[key];
+
+  worldSkillsFetching[key] = (async () => {
+    try {
+      const gradeParam = grade === 'Middle School' ? '?grade_level=Middle+School' : '';
+      console.log('Fetching world skills for', grade || 'High School', '...');
+      const res = await fetch(`https://www.robotevents.com/api/seasons/${seasonId}/skills${gradeParam}`);
+      if (!res.ok) { console.warn('World skills API returned', res.status); return null; }
+      const data = await res.json();
+      if (!Array.isArray(data)) { console.warn('World skills API returned non-array:', typeof data); return null; }
+      console.log('World skills loaded:', data.length, 'teams (' + (grade || 'High School') + ')');
+      worldSkillsCache[key] = { data, fetchedAt: Date.now() };
+      return data;
+    } catch (e) { console.warn('World skills fetch failed:', e); return null; }
+    finally { delete worldSkillsFetching[key]; }
+  })();
+
+  return worldSkillsFetching[key];
+}
+
+async function fetchWorldSkills(seasonId, teamNum, teamGrade) {
+  const data = await loadWorldSkillsData(seasonId, teamGrade);
+  if (!data) return null;
+  const entry = data.find(e => e.team && e.team.team === teamNum);
+  if (!entry) {
+    console.warn('Team', teamNum, '(' + (teamGrade || 'HS') + ') not found in world skills (total:', data.length, ')');
+    return null;
+  }
+  return { entry, total: data.length };
 }
 
 function getLevelBadge(level) {
@@ -568,6 +596,19 @@ function showHome() {
 
 // Init: render history on load
 renderHistory();
+
+// Prefetch: load season + world skills data in background (both HS and MS)
+(async () => {
+  try {
+    const token = getToken();
+    if (!currentSeasonId) {
+      const season = await getActiveSeason(token);
+      currentSeasonId = season.id;
+    }
+    loadWorldSkillsData(currentSeasonId, 'High School');
+    loadWorldSkillsData(currentSeasonId, 'Middle School');
+  } catch (e) { console.warn('Prefetch failed:', e); }
+})();
 
 </script>
 
